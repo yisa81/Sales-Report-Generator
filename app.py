@@ -12,16 +12,28 @@ uploaded_file = st.file_uploader("Upload Sales Report (Excel)", type=["xlsx"])
 sku_option = st.radio("Do you want to filter specific SKUs?", ("No", "Yes - Upload a file", "Yes - Enter manually"))
 
 sku_list = None
+
 if sku_option == "Yes - Upload a file":
-    sku_file = st.file_uploader("Upload SKU List (CSV)", type=["csv"])
+    sku_file = st.file_uploader("Upload SKU List (CSV, XLSX, PNG, JPEG)", type=["csv", "xlsx", "png", "jpeg"])
     if sku_file:
-        sku_list = pd.read_csv(sku_file)['SKU'].tolist()
-        st.success(f"Loaded {len(sku_list)} SKUs from file.")
+        file_extension = sku_file.name.split(".")[-1].lower()
+        if file_extension in ["csv", "xlsx"]:
+            if file_extension == "csv":
+                sku_df = pd.read_csv(sku_file)
+            else:  # xlsx
+                sku_df = pd.read_excel(sku_file)
+            if "SKU" in sku_df.columns:
+                sku_list = sku_df["SKU"].tolist()
+                st.success(f"Loaded {len(sku_list)} SKUs from file.")
+            else:
+                st.warning("The uploaded file must contain a 'SKU' column.")
+        else:
+            st.warning("Only CSV and XLSX files can be processed. PNG and JPEG are not supported for SKU extraction.")
 
 elif sku_option == "Yes - Enter manually":
-    sku_text = st.text_area("Enter SKUs separated by commas")
-    if sku_text:
-        sku_list = [sku.strip() for sku in sku_text.split(",")]
+    sku_list = st.text_area("Enter SKUs (one per line)").split("\n")
+    sku_list = [sku.strip() for sku in sku_list if sku.strip()]
+    if sku_list:
         st.success(f"Loaded {len(sku_list)} SKUs from manual input.")
 
 if uploaded_file:
@@ -42,7 +54,7 @@ if uploaded_file:
 
         # Merge Data with OOS
         merged_df = data_df.merge(
-            oos_df[['Simple SKU', 'Actual Outstanding Balance', 'Estimated Delivery Date']],
+            oos_df[['Simple SKU', 'Actual Outstanding Balance', 'Estimated Delivery Date','Order For']],
             left_on='SKU', right_on='Simple SKU', how='left'
         )
 
